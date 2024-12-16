@@ -352,11 +352,40 @@ version (MemoryAssertSupported)
      * Differences with version 1 are:
      * - The handler is registered with SA_ONSTACK, so it can handle stack overflows.
      * - It uses `assert(0)` instead of `throw new Error` and doesn't support catching the error.
+     * - This is a template so that the -check and -checkaction flags of the compiled program are used,
+     *   instead of the ones used for compiling druntime.
      *
      * Returns: whether the registration was successful
      */
-    bool registerMemoryAssertHandler()
+    bool registerMemoryAssertHandler()()
     {
+        nothrow @nogc extern(C)
+        void _d_handleSignalAssert(int signum, siginfo_t* info, void* contextPtr)
+        {
+            // Guess the reason for the segfault by seeing if the faulting address
+            // is close to the stack pointer or the null pointer.
+
+            const void* segfaultingPtr = info.si_addr;
+
+            auto context = cast(ucontext_t*) contextPtr;
+            version (X86_64)
+                const stackPtr = cast(void*) context.uc_mcontext.gregs[REG_RSP];
+            else version (X86)
+                const stackPtr = cast(void*) context.uc_mcontext.gregs[REG_ESP];
+            else
+                static assert(false, "Unsupported architecture."); // TODO: other architectures
+            auto distanceToStack = cast(ptrdiff_t) (stackPtr - segfaultingPtr);
+            if (distanceToStack < 0)
+                distanceToStack = -distanceToStack;
+
+            if (stackPtr && distanceToStack <= 4096)
+                assert(false, "segmentation fault: call stack overflow");
+            else if (cast(size_t) segfaultingPtr < MEMORY_RESERVED_FOR_NULL_DEREFERENCE)
+                assert(false, "segmentation fault: null pointer read/write operation");
+            else
+                assert(false, "segmentation fault: invalid pointer read/write operation");
+        }
+
         sigaction_t action;
         action.sa_sigaction = &_d_handleSignalAssert;
         action.sa_flags = SA_SIGINFO | SA_ONSTACK;
@@ -382,32 +411,5 @@ version (MemoryAssertSupported)
     bool deregisterMemoryAssertHandler()
     {
         return !sigaction(SIGSEGV, &oldSigaction2, null);
-    }
-
-    private nothrow @nogc extern(C)
-    void _d_handleSignalAssert(int signum, siginfo_t* info, void* contextPtr)
-    {
-        // Guess the reason for the segfault by seeing if the faulting address
-        // is close to the stack pointer or the null pointer.
-
-        const void* segfaultingPtr = info.si_addr;
-
-        auto context = cast(ucontext_t*) contextPtr;
-        version (X86_64)
-            const stackPtr = cast(void*) context.uc_mcontext.gregs[REG_RSP];
-        else version (X86)
-            const stackPtr = cast(void*) context.uc_mcontext.gregs[REG_ESP];
-        else
-            static assert(false, "Unsupported architecture."); // TODO: other architectures
-        auto distanceToStack = cast(ptrdiff_t) (stackPtr - segfaultingPtr);
-        if (distanceToStack < 0)
-            distanceToStack = -distanceToStack;
-
-        if (stackPtr && distanceToStack <= 4096)
-            assert(false, "segmentation fault: call stack overflow");
-        else if (cast(size_t) segfaultingPtr < MEMORY_RESERVED_FOR_NULL_DEREFERENCE)
-            assert(false, "segmentation fault: null pointer read/write operation");
-        else
-            assert(false, "segmentation fault: invalid pointer read/write operation");
     }
 }

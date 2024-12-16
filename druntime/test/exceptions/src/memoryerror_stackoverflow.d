@@ -1,15 +1,15 @@
 import etc.linux.memoryerror;
 
-int* x = null;
+alias LargeT = ubyte[1024];
 
-void f(ubyte[] arr)
-{
-    ubyte[1024] buf = 0;
-    f(buf[]);
-}
+void a(LargeT arg = LargeT.init)
+    => b;
+
+void b(LargeT arg = LargeT.init)
+    => a;
 
 void main()
 {
     registerMemoryAssertHandler();
-    f([]);
+    a;
 }

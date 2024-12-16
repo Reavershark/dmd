@@ -12,11 +12,8 @@ SED:=sed
 GDB:=gdb
 
 ifeq ($(OS),linux)
-    TESTS+=line_trace line_trace_21656 long_backtrace_trunc rt_trap_exceptions cpp_demangle
+    TESTS+=line_trace line_trace_21656 long_backtrace_trunc rt_trap_exceptions cpp_demangle memoryerror_null memoryerror_stackoverflow
     line_trace_dflags:=-L--export-dynamic
-	ifeq ($(BUILD),debug)
-		TESTS+=memoryerror_null memoryerror_stackoverflow
-	endif
 endif
 
 ifeq ($(OS),linux)
