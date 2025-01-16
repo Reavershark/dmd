@@ -24,9 +24,7 @@ version (Darwin):
 version (X86_64):
 
 // debug = PRINTF;
-import core.stdc.stdio;
-import core.stdc.stdlib;
-import core.stdc.string;
+import core.stdc.stdio : fprintf, stderr;
 import core.stdc.stdint : intptr_t;
 import core.sys.darwin.mach.dyld : _dyld_register_func_for_add_image;
 import core.sys.darwin.mach.getsect : mach_header;

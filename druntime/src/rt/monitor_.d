@@ -8,7 +8,9 @@
  */
 module rt.monitor_;
 
-import core.atomic, core.stdc.stdlib, core.stdc.string;
+import core.atomic;
+import core.stdc.stdlib : calloc, free, realloc;
+import core.stdc.string : memmove;
 
 // NOTE: The dtor callback feature is only supported for monitors that are not
 //       supplied by the user.  The assumption is that any object with a user-

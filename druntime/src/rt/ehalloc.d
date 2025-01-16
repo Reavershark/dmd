@@ -15,7 +15,7 @@ module rt.ehalloc;
 
 debug(PRINTF)
 {
-    import core.stdc.stdio;
+    import core.stdc.stdio : printf;
 }
 
 

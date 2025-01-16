@@ -15,18 +15,21 @@ module rt.sections_win64;
 version (CRuntime_Microsoft):
 
 // debug = PRINTF;
-debug(PRINTF) import core.stdc.stdio;
+
 import core.memory;
-import core.stdc.stdlib : calloc, malloc, free;
-import core.sys.windows.winbase : FreeLibrary, GetCurrentThreadId, GetModuleHandleExW,
-    GetProcAddress, LoadLibraryA, LoadLibraryW,
-    GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT;
-import core.sys.windows.winnt : WCHAR, IMAGE_DOS_HEADER, IMAGE_DOS_SIGNATURE, IMAGE_FILE_HEADER,
-    IMAGE_NT_HEADERS, IMAGE_SECTION_HEADER, IMAGE_TLS_DIRECTORY, IMAGE_DIRECTORY_ENTRY_TLS;
+import core.stdc.stdlib : calloc, free, malloc;
+import core.sys.windows.winbase : FreeLibrary, GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
+    GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, GetCurrentThreadId, GetModuleHandleExW, GetProcAddress, LoadLibraryA,
+    LoadLibraryW;
+import core.sys.windows.winnt : IMAGE_DIRECTORY_ENTRY_TLS, IMAGE_DOS_HEADER, IMAGE_DOS_SIGNATURE, IMAGE_FILE_HEADER,
+    IMAGE_NT_HEADERS, IMAGE_SECTION_HEADER, IMAGE_TLS_DIRECTORY, WCHAR;
+import core.internal.container.array;
 import core.sys.windows.threadaux;
 import core.thread;
-import rt.deh, rt.minfo;
-import core.internal.container.array;
+import rt.deh;
+import rt.minfo;
+
+debug (PRINTF) import core.stdc.stdio : printf;
 
 version (DigitalMars) version (Win64) version = hasEHTables;
 

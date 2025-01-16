@@ -19,6 +19,8 @@ private
     {
         import core.sys.windows.basetsd /+: HANDLE+/;
         import core.sys.windows.winbase /+: LOCKFILE_EXCLUSIVE_LOCK, LockFileEx, OVERLAPPED, SetEndOfFile+/;
+
+        import core.stdc.stdio : _fdopen, _get_osfhandle, _O_BINARY, _O_CREAT, _O_RDWR, _S_IREAD, _S_IWRITE, _wopen;
     }
     else version (Posix)
     {
@@ -26,9 +28,9 @@ private
         import core.sys.posix.unistd : F_LOCK, ftruncate, lockf;
     }
     import core.internal.utf;
-    import core.stdc.config : c_long;
-    import core.stdc.stdio;
-    import core.stdc.stdlib;
+    import core.stdc.stdio : EOF, fclose, fgetc, FILE, fileno, fopen, fprintf, fread, fseek, ftell, printf, SEEK_END,
+        SEEK_SET, stderr;
+    import core.stdc.stdlib : exit, EXIT_FAILURE;
 
     struct BitArray
     {
@@ -328,7 +330,7 @@ shared static ~this()
 
 uint digits(uint number)
 {
-    import core.stdc.math;
+    import core.stdc.math : floor, log10;
     return number ? cast(uint)floor(log10(number)) + 1 : 1;
 }
 

@@ -13,10 +13,11 @@
 module rt.lifetime;
 
 import core.attribute : weak;
-import core.memory;
 import core.internal.gc.blockmeta : PAGESIZE;
-debug(PRINTF) import core.stdc.stdio;
+import core.memory;
 static import rt.tlsgc;
+
+debug (PRINTF) import core.stdc.stdio : printf;
 
 alias BlkInfo = GC.BlkInfo;
 alias BlkAttr = GC.BlkAttr;
@@ -81,8 +82,8 @@ Returns: newly created object
 */
 extern (C) Object _d_newclass(const ClassInfo ci) @weak
 {
-    import core.stdc.stdlib;
     import core.exception : onOutOfMemoryError;
+    import core.stdc.stdlib : malloc;
     void* p;
     auto init = ci.initializer;
 
@@ -336,8 +337,8 @@ in
 }
 do
 {
-    import core.stdc.string;
     import core.exception : onOutOfMemoryError;
+    import core.stdc.string : memcpy, memset;
 
     auto isshared = typeid(ti) is typeid(TypeInfo_Shared);
     auto tinext = unqualify(ti.next);
@@ -497,7 +498,7 @@ Lcontinue:
 /// ditto
 extern (C) void[] _d_newarrayT(const TypeInfo ti, size_t length) pure nothrow @weak
 {
-    import core.stdc.string;
+    import core.stdc.string : memset;
 
     void[] result = _d_newarrayU(ti, length);
     auto tinext = unqualify(ti.next);
@@ -533,7 +534,7 @@ extern (C) void[] _d_newarrayiT(const TypeInfo ti, size_t length) pure nothrow @
 
     default:
     {
-        import core.stdc.string;
+        import core.stdc.string : memcpy;
         immutable sz = init.length;
         for (size_t u = 0; u < size * length; u += sz)
             memcpy(result.ptr + u, init.ptr, sz);
@@ -801,8 +802,8 @@ in
 }
 do
 {
-    import core.stdc.string;
     import core.exception : onOutOfMemoryError;
+    import core.stdc.string : memset;
 
     debug(PRINTF)
     {
@@ -911,8 +912,8 @@ in
 }
 do
 {
-    import core.stdc.string;
     import core.exception : onOutOfMemoryError;
+    import core.stdc.string : memcpy, memset;
 
     debug(PRINTF)
     {
@@ -1111,8 +1112,8 @@ Returns: `px` after being appended to
 extern (C)
 byte[] _d_arrayappendcTX(const TypeInfo ti, return scope ref byte[] px, size_t n) @weak
 {
-    import core.stdc.string;
     import core.exception : onOutOfMemoryError;
+    import core.stdc.string : memcpy, memset;
     // This is a cut&paste job from _d_arrayappendT(). Should be refactored.
 
     // Short circuit if no data is being appended.

@@ -14,7 +14,7 @@
  */
 module rt.cmath2;
 
-import core.stdc.math;
+import core.stdc.math : fabs;
 
 extern (C):
 

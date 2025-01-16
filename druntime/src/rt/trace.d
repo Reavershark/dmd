@@ -12,15 +12,21 @@
 module rt.trace;
 
 import core.demangle;
-import core.stdc.ctype;
-import core.stdc.stdio;
-import core.stdc.stdlib;
-import core.stdc.string;
+import core.stdc.ctype : isalpha, isgraph, isspace;
+import core.stdc.stdio : EOF, fclose, fgetc, FILE, fopen, fprintf, stderr, stdout;
+import core.stdc.stdlib : exit, EXIT_FAILURE, free, malloc, qsort, realloc, strtoul;
+import core.stdc.string : memcmp, memset, strdup, strlen;
 
 version (CRuntime_Microsoft)
-    private alias core.stdc.stdlib._strtoui64 strtoull;
+{
+    import core.stdc.stdlib : strtoull = _strtoui64;
+}
+else
+{
+    import core.stdc.stdlib : strtoull;
+}
 
-shared static this ()
+shared static this()
 {
     enum DefaultLog = "trace.log";
     enum DefaultDef = "trace.def";
@@ -42,7 +48,7 @@ shared static this ()
  * Params:
  *   name = Path to the output file. Empty means stdout.
  */
-extern(C) void trace_setlogfilename(string name)
+extern (C) void trace_setlogfilename(string name)
 {
     updateFileName(trace_logfilename, name);
 }
@@ -60,7 +66,7 @@ extern(C) void trace_setlogfilename(string name)
  * Params:
  *   name = Path to the output file. Empty means stdout.
  */
-extern(C) void trace_setdeffilename(string name)
+extern (C) void trace_setdeffilename(string name)
 {
     updateFileName(trace_deffilename, name);
 }
@@ -75,7 +81,7 @@ void updateFileName(ref char[] filename, string name)
         free(filename.ptr);
         filename = null;
     }
-    else if (auto newPtr = cast(char*)realloc(filename.ptr, name.length + 1))
+    else if (auto newPtr = cast(char*) realloc(filename.ptr, name.length + 1))
     {
         filename = newPtr[0 .. name.length + 1];
         filename[0 .. $ - 1] = name[];
@@ -93,8 +99,8 @@ alias long timer_t;
 struct SymPair
 {
     SymPair* next;
-    Symbol* sym;        // function that is called
-    ulong count;        // number of times sym is called
+    Symbol* sym; // function that is called
+    ulong count; // number of times sym is called
 }
 
 /////////////////////////////////////
@@ -102,18 +108,17 @@ struct SymPair
 
 struct Symbol
 {
-        Symbol* Sl, Sr;         // left, right children
-        SymPair* Sfanin;        // list of calling functions
-        SymPair* Sfanout;       // list of called functions
-        timer_t totaltime;      // aggregate time
-        timer_t functime;       // time excluding subfunction calls
-        ubyte Sflags;           // SFxxxx
-        uint recursion;         // call recursion level
-        const(char)[] Sident;   // name of symbol
+    Symbol* Sl, Sr; // left, right children
+    SymPair* Sfanin; // list of calling functions
+    SymPair* Sfanout; // list of called functions
+    timer_t totaltime; // aggregate time
+    timer_t functime; // time excluding subfunction calls
+    ubyte Sflags; // SFxxxx
+    uint recursion; // call recursion level
+    const(char)[] Sident; // name of symbol
 }
 
-enum ubyte SFvisited = 1;      // visited
-
+enum ubyte SFvisited = 1; // visited
 
 //////////////////////////////////
 // Build a linked list of these.
@@ -122,21 +127,21 @@ struct Stack
 {
     Stack* prev;
     Symbol* sym;
-    timer_t starttime;          // time when function was entered
-    timer_t ohd;                // overhead of all the bookkeeping code
-    timer_t subtime;            // time used by all subfunctions
+    timer_t starttime; // time when function was entered
+    timer_t ohd; // overhead of all the bookkeeping code
+    timer_t subtime; // time used by all subfunctions
 }
 
-Symbol* root;               // root of symbol table
+Symbol* root; // root of symbol table
 bool trace_inited;
 
 Stack* stack_freelist;
-Stack* trace_tos;           // top of stack
+Stack* trace_tos; // top of stack
 
 __gshared
 {
-    Symbol* groot;              // merged symbol table
-    int gtrace_inited;          // !=0 if initialized
+    Symbol* groot; // merged symbol table
+    int gtrace_inited; // !=0 if initialized
 
     timer_t trace_ohd;
 
@@ -148,7 +153,7 @@ __gshared
 ////////////////////////////////////////
 // Output optimal function link order.
 
-private void trace_order(FILE* fpdef, Symbol *s)
+private void trace_order(FILE* fpdef, Symbol* s)
 {
     while (s)
     {
@@ -164,7 +169,7 @@ private void trace_order(FILE* fpdef, Symbol *s)
 
 private Stack* stack_push()
 {
-    Stack *s;
+    Stack* s;
 
     if (stack_freelist)
     {
@@ -173,7 +178,7 @@ private Stack* stack_push()
     }
     else
     {
-        s = cast(Stack *)trace_malloc(Stack.sizeof);
+        s = cast(Stack*) trace_malloc(Stack.sizeof);
     }
     s.prev = trace_tos;
     trace_tos = s;
@@ -183,7 +188,7 @@ private Stack* stack_push()
 //////////////////////////////////////////////
 //
 
-private void stack_free(Stack *s)
+private void stack_free(Stack* s)
 {
     s.prev = stack_freelist;
     stack_freelist = s;
@@ -192,10 +197,10 @@ private void stack_free(Stack *s)
 //////////////////////////////////////
 // Qsort() comparison routine for array of pointers to SymPair's.
 
-extern(C) int sympair_cmp(scope const void* e1, scope const void* e2) nothrow @nogc
+extern (C) int sympair_cmp(scope const void* e1, scope const void* e2) nothrow @nogc
 {
-    auto count1 = (*cast(SymPair**)e1).count;
-    auto count2 = (*cast(SymPair**)e2).count;
+    auto count1 = (*cast(SymPair**) e1).count;
+    auto count2 = (*cast(SymPair**) e2).count;
     return (count1 > count2) - (count1 < count2);
 }
 
@@ -208,7 +213,7 @@ private void trace_place(FILE* fpdef, Symbol* s, ulong count)
     if (!(s.Sflags & SFvisited))
     {
         //printf("\t%.*s\t%llu\n", s.Sident.length, s.Sident.ptr, count);
-        fprintf(fpdef,"\t%.*s\n", cast(int) s.Sident.length, s.Sident.ptr);
+        fprintf(fpdef, "\t%.*s\n", cast(int) s.Sident.length, s.Sident.ptr);
         s.Sflags |= SFvisited;
 
         // Compute number of items in array
@@ -221,7 +226,7 @@ private void trace_place(FILE* fpdef, Symbol* s, ulong count)
             return;
 
         // Allocate and fill array
-        auto base = cast(SymPair**)trace_malloc(SymPair.sizeof * num);
+        auto base = cast(SymPair**) trace_malloc(SymPair.sizeof * num);
         size_t u = 0;
         for (auto sp = s.Sfanin; sp; sp = sp.next)
             base[u++] = sp;
@@ -230,10 +235,10 @@ private void trace_place(FILE* fpdef, Symbol* s, ulong count)
         assert(u == num);
 
         // Sort array
-        qsort(base, num, (SymPair *).sizeof, &sympair_cmp);
+        qsort(base, num, (SymPair*).sizeof, &sympair_cmp);
 
         //for (u = 0; u < num; u++)
-            //printf("\t\t%.*s\t%llu\n", base[u].sym.Sident.length, base[u].sym.Sident.ptr, base[u].count);
+        //printf("\t\t%.*s\t%llu\n", base[u].sym.Sident.length, base[u].sym.Sident.ptr, base[u].count);
 
         // Place symbols
         for (u = 0; u < num; u++)
@@ -244,7 +249,7 @@ private void trace_place(FILE* fpdef, Symbol* s, ulong count)
                 auto c2 = base[u2].count;
                 if (c2 < count)
                     c2 = count;
-                trace_place(fpdef, base[u].sym,c2);
+                trace_place(fpdef, base[u].sym, c2);
             }
             else
                 break;
@@ -268,17 +273,20 @@ private size_t trace_report(FILE* fplog, Symbol* s)
         ++nsymbols;
         if (s.Sl)
             nsymbols += trace_report(fplog, s.Sl);
-        fprintf(fplog,"------------------\n");
+        fprintf(fplog, "------------------\n");
         ulong count = 0;
         for (auto sp = s.Sfanin; sp; sp = sp.next)
         {
-            fprintf(fplog,"\t%5llu\t%.*s\n", sp.count, cast(int) sp.sym.Sident.length, sp.sym.Sident.ptr);
+            fprintf(fplog, "\t%5llu\t%.*s\n", sp.count, cast(int) sp.sym.Sident.length, sp
+                    .sym.Sident.ptr);
             count += sp.count;
         }
-        fprintf(fplog,"%.*s\t%llu\t%lld\t%lld\n", cast(int) s.Sident.length, s.Sident.ptr, count, s.totaltime, s.functime);
+        fprintf(fplog, "%.*s\t%llu\t%lld\t%lld\n", cast(int) s.Sident.length, s.Sident.ptr, count, s.totaltime, s
+                .functime);
         for (auto sp = s.Sfanout; sp; sp = sp.next)
         {
-            fprintf(fplog,"\t%5llu\t%.*s\n", sp.count, cast(int) sp.sym.Sident.length, sp.sym.Sident.ptr);
+            fprintf(fplog, "\t%5llu\t%.*s\n", sp.count, cast(int) sp.sym.Sident.length, sp
+                    .sym.Sident.ptr);
         }
         s = s.Sr;
     }
@@ -288,7 +296,7 @@ private size_t trace_report(FILE* fplog, Symbol* s)
 ////////////////////////////////////
 // Allocate and fill array of symbols.
 
-private void trace_array(Symbol*[] psymbols, Symbol *s, ref uint u)
+private void trace_array(Symbol*[] psymbols, Symbol* s, ref uint u)
 {
     while (s)
     {
@@ -298,19 +306,17 @@ private void trace_array(Symbol*[] psymbols, Symbol *s, ref uint u)
     }
 }
 
-
 //////////////////////////////////////
 // Qsort() comparison routine for array of pointers to Symbol's.
 
-extern(C) int symbol_cmp(scope const void* e1, scope const void* e2) nothrow @nogc
+extern (C) int symbol_cmp(scope const void* e1, scope const void* e2) nothrow @nogc
 {
-    auto ps1 = cast(Symbol **)e1;
-    auto ps2 = cast(Symbol **)e2;
+    auto ps1 = cast(Symbol**) e1;
+    auto ps2 = cast(Symbol**) e2;
 
     auto diff = (*ps2).functime - (*ps1).functime;
     return (diff == 0) ? 0 : ((diff > 0) ? 1 : -1);
 }
-
 
 ///////////////////////////////////
 // Report function timings
@@ -318,7 +324,7 @@ extern(C) int symbol_cmp(scope const void* e1, scope const void* e2) nothrow @no
 private void trace_times(FILE* fplog, Symbol*[] psymbols)
 {
     // Sort array
-    qsort(psymbols.ptr, psymbols.length, (Symbol *).sizeof, &symbol_cmp);
+    qsort(psymbols.ptr, psymbols.length, (Symbol*).sizeof, &symbol_cmp);
 
     // Print array header
     timer_t time_scale;
@@ -327,24 +333,24 @@ private void trace_times(FILE* fplog, Symbol*[] psymbols)
         timer_t freq;
         QueryPerformanceFrequency(&freq);
         time_scale = freq / 1_000_000;
-        fprintf(fplog,"\n======== Timer Is %lld Ticks/Sec, Times are in Microsecs ========\n\n",freq);
+        fprintf(fplog, "\n======== Timer Is %lld Ticks/Sec, Times are in Microsecs ========\n\n", freq);
     }
     else
     {
         // The exact frequency is unknown (and may vary), so do the reporting in Mega Ticks,
         // which corresponds to 1 microsecond on a 1GHz clock.
         time_scale = 1_000_000;
-        fprintf(fplog,"\n======== Timer frequency unknown, Times are in Megaticks ========\n\n");
+        fprintf(fplog, "\n======== Timer frequency unknown, Times are in Megaticks ========\n\n");
     }
-    fprintf(fplog,"  Num          Tree        Func        Per\n");
-    fprintf(fplog,"  Calls        Time        Time        Call\n\n");
+    fprintf(fplog, "  Num          Tree        Func        Per\n");
+    fprintf(fplog, "  Calls        Time        Time        Call\n\n");
 
     // Print array
     foreach (s; psymbols)
     {
-        timer_t tl,tr;
-        timer_t fl,fr;
-        timer_t pl,pr;
+        timer_t tl, tr;
+        timer_t fl, fr;
+        timer_t pl, pr;
         char[8192] buf = void;
         SymPair* sp;
         ulong calls;
@@ -361,24 +367,23 @@ private void trace_times(FILE* fplog, Symbol*[] psymbols)
         fl = s.functime / time_scale;
         pl = s.functime / calls / time_scale;
 
-        fprintf(fplog,"%7llu%12lld%12lld%12lld     %.*s\n",
-                      calls, tl, fl, pl, cast(int) id.length, id.ptr);
+        fprintf(fplog, "%7llu%12lld%12lld%12lld     %.*s\n",
+            calls, tl, fl, pl, cast(int) id.length, id.ptr);
     }
 }
-
 
 ///////////////////////////////////
 // Initialize.
 
 private void trace_init()
 {
-    synchronized        // protects gtrace_inited
+    synchronized  // protects gtrace_inited
     {
         if (!gtrace_inited)
         {
             gtrace_inited = 1;
 
-            {   // See if we can determine the overhead.
+            { // See if we can determine the overhead.
                 timer_t starttime;
                 timer_t endtime;
 
@@ -388,14 +393,14 @@ private void trace_init()
                 uint u;
                 for (u = 0; u < 100; u++)
                 {
-                    _c_trace_pro(0,null);
+                    _c_trace_pro(0, null);
                     _c_trace_epi();
                 }
                 QueryPerformanceCounter(&endtime);
                 trace_ohd = (endtime - starttime) / u;
                 //printf("trace_ohd = %lld\n",trace_ohd);
                 if (trace_ohd > 0)
-                    trace_ohd--;            // round down
+                    trace_ohd--; // round down
                 trace_tos = st;
             }
         }
@@ -423,13 +428,13 @@ static ~this()
         stack_freelist = n;
     }
 
-    synchronized        // protects groot
+    synchronized  // protects groot
     {
         // Merge thread local root into global groot
 
         if (!groot)
         {
-            groot = root;       // that was easy
+            groot = root; // that was easy
             root = null;
         }
         else
@@ -440,7 +445,7 @@ static ~this()
                 {
                     auto gs = trace_addsym(proot, s.Sident);
                     gs.totaltime += s.totaltime;
-                    gs.functime  += s.functime;
+                    gs.functime += s.functime;
 
                     static void mergeFan(Symbol** proot, SymPair** pgf, const(SymPair)* sf)
                     {
@@ -451,7 +456,7 @@ static ~this()
                             {
                                 if (!gf)
                                 {
-                                    auto sp = cast(SymPair *)trace_malloc(SymPair.sizeof);
+                                    auto sp = cast(SymPair*) trace_malloc(SymPair.sizeof);
                                     sp.next = *pgf;
                                     *pgf = sp;
                                     sp.sym = sym;
@@ -519,13 +524,12 @@ shared static ~this()
         trace_merge(&groot);
 
         // Report results
-        FILE* fplog = trace_logfilename.length == 0 ? stdout :
-            fopen(trace_logfilename.ptr, "w");
+        FILE* fplog = trace_logfilename.length == 0 ? stdout : fopen(trace_logfilename.ptr, "w");
         if (fplog)
         {
             auto nsymbols = trace_report(fplog, groot);
 
-            auto p = cast(Symbol **)trace_malloc((Symbol *).sizeof * nsymbols);
+            auto p = cast(Symbol**) trace_malloc((Symbol*).sizeof * nsymbols);
             auto psymbols = p[0 .. nsymbols];
 
             uint u;
@@ -540,11 +544,10 @@ shared static ~this()
             fprintf(stderr, "cannot write '%s'", trace_logfilename.ptr);
 
         // Output function link order
-        FILE* fpdef = trace_deffilename.length == 0 ? stdout :
-            fopen(trace_deffilename.ptr, "w");
+        FILE* fpdef = trace_deffilename.length == 0 ? stdout : fopen(trace_deffilename.ptr, "w");
         if (fpdef)
         {
-            fprintf(fpdef,"\nFUNCTIONS\n");
+            fprintf(fpdef, "\nFUNCTIONS\n");
             trace_order(fpdef, groot);
             fclose(fpdef);
         }
@@ -556,7 +559,7 @@ shared static ~this()
 /////////////////////////////////
 // Our storage allocator.
 
-private void *trace_malloc(size_t nbytes)
+private void* trace_malloc(size_t nbytes)
 {
     auto p = malloc(nbytes);
     if (!p)
@@ -564,7 +567,7 @@ private void *trace_malloc(size_t nbytes)
     return p;
 }
 
-private void trace_free(void *p)
+private void trace_free(void* p)
 {
     free(p);
 }
@@ -577,7 +580,7 @@ private Symbol* trace_addsym(Symbol** proot, const(char)[] id)
     //printf("trace_addsym('%s',%d)\n",p,len);
     auto parent = proot;
     auto rover = *parent;
-    while (rover !is null)               // while we haven't run out of tree
+    while (rover !is null) // while we haven't run out of tree
     {
         immutable len = id.length <= rover.Sident.length ? id.length : rover.Sident.length;
         int cmp = memcmp(id.ptr, rover.Sident.ptr, len);
@@ -587,16 +590,16 @@ private Symbol* trace_addsym(Symbol** proot, const(char)[] id)
         {
             return rover;
         }
-        parent = (cmp < 0) ?            /* if we go down left side      */
-            &(rover.Sl) :               /* then get left child          */
-            &(rover.Sr);                /* else get right child         */
-        rover = *parent;                /* get child                    */
+        parent = (cmp < 0) ?  /* if we go down left side      */
+            &(rover.Sl) :  /* then get left child          */
+            &(rover.Sr); /* else get right child         */
+        rover = *parent; /* get child                    */
     }
     /* not in table, so insert into table       */
-    auto s = cast(Symbol *)trace_malloc(Symbol.sizeof);
-    memset(s,0,Symbol.sizeof);
+    auto s = cast(Symbol*) trace_malloc(Symbol.sizeof);
+    memset(s, 0, Symbol.sizeof);
     s.Sident = id;
-    *parent = s;                        // link new symbol into tree
+    *parent = s; // link new symbol into tree
     return s;
 }
 
@@ -613,7 +616,7 @@ private void trace_sympair_add(SymPair** psp, Symbol* s, ulong count)
         sp = *psp;
         if (!sp)
         {
-            sp = cast(SymPair *)trace_malloc(SymPair.sizeof);
+            sp = cast(SymPair*) trace_malloc(SymPair.sizeof);
             sp.sym = s;
             sp.count = 0;
             sp.next = null;
@@ -631,7 +634,7 @@ private void trace_sympair_add(SymPair** psp, Symbol* s, ulong count)
 //////////////////////////////////////////////
 // This one is called by DMD
 
-private extern(C) void trace_pro(char[] id)
+private extern (C) void trace_pro(char[] id)
 {
     //printf("trace_pro(ptr = %p, length = %lld)\n", id.ptr, id.length);
     //printf("trace_pro(id = '%.*s')\n", id.length, id.ptr);
@@ -639,7 +642,7 @@ private extern(C) void trace_pro(char[] id)
     if (!trace_inited)
     {
         trace_inited = true;
-        trace_init();                   // initialize package
+        trace_init(); // initialize package
     }
 
     timer_t starttime;
@@ -653,8 +656,8 @@ private extern(C) void trace_pro(char[] id)
     {
         // Accumulate Sfanout and Sfanin
         auto prev = tos.prev.sym;
-        trace_sympair_add(&prev.Sfanout,s,1);
-        trace_sympair_add(&s.Sfanin,prev,1);
+        trace_sympair_add(&prev.Sfanout, s, 1);
+        trace_sympair_add(&s.Sfanin, prev, 1);
     }
     timer_t t;
     QueryPerformanceCounter(&t);
@@ -667,7 +670,7 @@ private extern(C) void trace_pro(char[] id)
 }
 
 // Called by some old versions of DMD
-extern(C) void _c_trace_pro(size_t idlen, char* idptr)
+extern (C) void _c_trace_pro(size_t idlen, char* idptr)
 {
     char[] id = idptr[0 .. idlen];
     trace_pro(id);
@@ -676,7 +679,7 @@ extern(C) void _c_trace_pro(size_t idlen, char* idptr)
 /////////////////////////////////////////
 // Called by DMD generated code
 
-extern(C) void _c_trace_epi()
+extern (C) void _c_trace_epi()
 {
     //printf("_c_trace_epi()\n");
     if (auto tos = trace_tos)
@@ -686,9 +689,9 @@ extern(C) void _c_trace_epi()
         auto starttime = tos.starttime;
         auto totaltime = endtime - starttime - tos.ohd;
         if (totaltime < 0)
-        {   //printf("endtime=%lld - starttime=%lld - tos.ohd=%lld < 0\n",
+        { //printf("endtime=%lld - starttime=%lld - tos.ohd=%lld < 0\n",
             //  endtime,starttime,tos.ohd);
-            totaltime = 0;              // round off error, just make it 0
+            totaltime = 0; // round off error, just make it 0
         }
 
         // totaltime is time spent in this function + all time spent in
@@ -699,7 +702,7 @@ extern(C) void _c_trace_epi()
 
         //if (totaltime < tos.subtime)
         //printf("totaltime=%lld < tos.subtime=%lld\n",totaltime,tos.subtime);
-        tos.sym.functime  += totaltime - tos.subtime;
+        tos.sym.functime += totaltime - tos.subtime;
         auto ohd = tos.ohd;
         auto n = tos.prev;
         stack_free(tos);
@@ -714,7 +717,6 @@ extern(C) void _c_trace_epi()
         }
     }
 }
-
 
 ////////////////////////// FILE INTERFACE /////////////////////////
 
@@ -738,14 +740,15 @@ char[] trace_readline(FILE* fp)
         if (buf.length <= idx)
         {
             const size_t newLength = buf.length + 80;
-            if (auto newPtr = cast(char*)realloc(buf.ptr, newLength))
+            if (auto newPtr = cast(char*) realloc(buf.ptr, newLength))
                 buf = newPtr[0 .. newLength];
             else
                 assert(0, "Memory allocation failed");
         }
         currentChar = fgetc(fp);
-        buf[idx++] = cast(char)currentChar;
-    } while (currentChar != EOF && currentChar != '\n');
+        buf[idx++] = cast(char) currentChar;
+    }
+    while (currentChar != EOF && currentChar != '\n');
 
     // Encountered '\n' or EOF immediately
     // The calling code makes a distinction between EOF and '\n'
@@ -761,7 +764,7 @@ char[] trace_readline(FILE* fp)
 //////////////////////////////////////
 // Skip space
 
-private char *skipspace(char *p)
+private char* skipspace(char* p)
 {
     while (isspace(*p))
         p++;
@@ -780,14 +783,15 @@ private void trace_merge(Symbol** proot)
     FILE* fp = fopen(trace_logfilename.ptr, "r");
     if (fp is null)
         return;
-    scope(exit) fclose(fp);
+    scope (exit)
+        fclose(fp);
 
     char* buf = null;
     SymPair* sfanin = null;
     auto psp = &sfanin;
-    char *p;
+    char* p;
     ulong count;
-    Symbol *s;
+    Symbol* s;
 
     while (1)
     {
@@ -797,26 +801,26 @@ private void trace_merge(Symbol** proot)
             break;
         switch (*buf)
         {
-        case '=':               // ignore rest of file
+        case '=': // ignore rest of file
             trace_free(buf);
             return;
         case ' ':
-        case '\t':              // fan in or fan out line
-            count = strtoul(buf,&p,10);
-            if (p == buf)       // if invalid conversion
+        case '\t': // fan in or fan out line
+            count = strtoul(buf, &p, 10);
+            if (p == buf) // if invalid conversion
                 continue;
             p = skipspace(p);
             if (!*p)
                 continue;
             s = trace_addsym(proot, p[0 .. strlen(p)]);
-            trace_sympair_add(psp,s,count);
+            trace_sympair_add(psp, s, count);
             break;
         default:
             if (!isalpha(*buf))
             {
                 if (!sfanin)
                     psp = &sfanin;
-                continue;       // regard unrecognized line as separator
+                continue; // regard unrecognized line as separator
             }
             goto case;
         case '?':
@@ -831,11 +835,11 @@ private void trace_merge(Symbol** proot)
             s = trace_addsym(proot, buf[0 .. strlen(buf)]);
             if (s.Sfanin)
             {
-                SymPair *sp;
+                SymPair* sp;
 
                 for (; sfanin; sfanin = sp)
                 {
-                    trace_sympair_add(&s.Sfanin,sfanin.sym,sfanin.count);
+                    trace_sympair_add(&s.Sfanin, sfanin.sym, sfanin.count);
                     sp = sfanin.next;
                     trace_free(sfanin);
                 }
@@ -848,10 +852,10 @@ private void trace_merge(Symbol** proot)
 
             {
                 p++;
-                count = strtoul(p,&p,10);
-                timer_t t = cast(long)strtoull(p,&p,10);
+                count = strtoul(p, &p, 10);
+                timer_t t = cast(long) strtoull(p, &p, 10);
                 s.totaltime += t;
-                t = cast(long)strtoull(p,&p,10);
+                t = cast(long) strtoull(p, &p, 10);
                 s.functime += t;
             }
             break;
@@ -865,8 +869,8 @@ version (Windows)
 {
     extern (Windows)
     {
-        export int QueryPerformanceCounter(timer_t *);
-        export int QueryPerformanceFrequency(timer_t *);
+        export int QueryPerformanceCounter(timer_t*);
+        export int QueryPerformanceFrequency(timer_t*);
     }
 }
 else version (AArch64)
@@ -877,18 +881,26 @@ else version (AArch64)
     // ldc.intrinsics.llvm_readcyclecounter on AArch64.
     extern (D) void QueryPerformanceCounter(timer_t* ctr)
     {
-        asm { "mrs %0, cntvct_el0" : "=r" (*ctr); }
+        asm
+        {
+            "mrs %0, cntvct_el0" : "=r"(*ctr);
+        }
     }
+
     extern (D) void QueryPerformanceFrequency(timer_t* freq)
     {
-        asm { "mrs %0, cntfrq_el0" : "=r" (*freq); }
+        asm
+        {
+            "mrs %0, cntfrq_el0" : "=r"(*freq);
+        }
     }
 }
 else version (LDC)
 {
     extern (D) void QueryPerformanceCounter(timer_t* ctr)
     {
-        import ldc.intrinsics: llvm_readcyclecounter;
+        import ldc.intrinsics : llvm_readcyclecounter;
+
         *ctr = llvm_readcyclecounter();
     }
 }
@@ -900,27 +912,27 @@ else
         {
             asm
             {
-                naked                   ;
-                mov       ECX,EAX       ;
-                rdtsc                   ;
-                mov   [ECX],EAX         ;
-                mov   [ECX+4],EDX        ;
-                ret                     ;
+                naked;
+                mov ECX, EAX;
+                rdtsc;
+                mov [ECX], EAX;
+                mov [ECX + 4], EDX;
+                ret;
             }
         }
         else version (D_InlineAsm_X86_64)
         {
             asm
             {
-                naked                   ;
+                naked;
                 // rdtsc can produce skewed results without preceding lfence/mfence.
                 // this is what GNU/Linux does, but only use mfence here.
                 // see https://github.com/torvalds/linux/blob/03b9730b769fc4d87e40f6104f4c5b2e43889f19/arch/x86/include/asm/msr.h#L130-L154
-                mfence                  ; // serialize rdtsc instruction.
-                rdtsc                   ;
-                mov   [RDI],EAX         ;
-                mov   [RDI+4],EDX        ;
-                ret                     ;
+                mfence; // serialize rdtsc instruction.
+                rdtsc;
+                mov [RDI], EAX;
+                mov [RDI + 4], EDX;
+                ret;
             }
         }
         else

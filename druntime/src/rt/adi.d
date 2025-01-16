@@ -15,7 +15,7 @@ module rt.adi;
 
 private
 {
-    debug(adi) import core.stdc.stdio;
+    debug(adi) import core.stdc.stdio : printf;
 }
 
 /***************************************

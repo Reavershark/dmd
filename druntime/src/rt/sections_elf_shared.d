@@ -25,11 +25,9 @@ version (MIPS64)  version = MIPS_Any;
 version (RISCV32) version = RISCV_Any;
 version (RISCV64) version = RISCV_Any;
 
-// debug = PRINTF;
 import core.internal.elf.dl;
 import core.memory;
-import core.stdc.config;
-import core.stdc.stdio;
+import core.stdc.config : c_long, c_ulong;
 import core.stdc.stdlib : calloc, exit, EXIT_FAILURE, free, malloc;
 import core.stdc.string : strlen;
 version (linux)
@@ -68,6 +66,9 @@ import rt.deh;
 import rt.dmain2;
 import rt.minfo;
 import rt.util.utility : safeAssert;
+
+// debug = PRINTF;
+debug (PRINTF) import core.stdc.stdio : printf;
 
 alias DSO SectionGroup;
 struct DSO

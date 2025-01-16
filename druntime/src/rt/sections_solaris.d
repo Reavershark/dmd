@@ -26,9 +26,12 @@ else version (OpenBSD)
 version (SolarisOrOpenBSD):
 
 // debug = PRINTF;
-debug(PRINTF) import core.stdc.stdio;
-import core.stdc.stdlib : malloc, free;
-import rt.deh, rt.minfo;
+
+import core.stdc.stdlib : free, malloc;
+import rt.deh;
+import rt.minfo;
+
+debug (PRINTF) import core.stdc.stdio : printf;
 
 struct SectionGroup
 {

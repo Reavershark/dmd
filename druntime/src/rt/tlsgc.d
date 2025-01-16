@@ -13,7 +13,7 @@
  */
 module rt.tlsgc;
 
-import core.stdc.stdlib;
+import core.stdc.stdlib : free, malloc;
 
 static import rt.lifetime, rt.sections;
 

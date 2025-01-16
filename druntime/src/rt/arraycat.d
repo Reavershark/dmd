@@ -12,9 +12,9 @@ module rt.arraycat;
 
 private
 {
-    import core.stdc.string;
     import core.internal.util.array;
-    debug(PRINTF) import core.stdc.stdio;
+    import core.stdc.string : memcpy;
+    debug(PRINTF) import core.stdc.stdio : printf;
 }
 
 extern (C) @trusted nothrow:
